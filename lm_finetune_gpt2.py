@@ -2,12 +2,7 @@ import argparse
 import glob
 import logging
 import os
-import pickle
-import random
-import re
-import shutil
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 try:
@@ -82,11 +77,11 @@ def train(args, train_dataset, model, tokenizer):
     tr_loss, logging_loss = 0.0, 0.0
     model.zero_grad()
     train_iterator = trange(int(args.num_train_epochs),
-                            desc="Epoch", disable=args.local_rank not in [-1, 0])
+                            desc="Epoch", disable=False)
     set_seed(args)  # Added here for reproducibility (even between python 2 and 3)
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration",
-                              disable=args.local_rank not in [-1, 0])
+                              disable=False)
         for step, batch in enumerate(epoch_iterator):
             inputs, labels = batch, batch
             inputs = inputs.to(args.device)
@@ -123,7 +118,7 @@ def train(args, train_dataset, model, tokenizer):
                 if args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     # Log metrics
                     # Only evaluate when single GPU otherwise metrics may not average well
-                    if args.local_rank == -1 and args.evaluate_during_training:
+                    if args.evaluate_during_training:
                         results = evaluate(args, model, tokenizer)
                         for key, value in results.items():
                             tb_writer.add_scalar(
@@ -341,6 +336,7 @@ def main():
     if args.block_size <= 0:
         # Our input block size will be the max possible for the model
         args.block_size = tokenizer.max_len_single_sentence
+        print("Block size:", args.block_size)
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
     model = model_class.from_pretrained(args.model_name_or_path, from_tf=bool(
         '.ckpt' in args.model_name_or_path), config=config)
@@ -360,7 +356,7 @@ def main():
     # Saving best-practices: if you use save_pretrained for the model and tokenizer, you can reload them using from_pretrained()
     if args.do_train:
         # Create output directory if needed
-        if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
+        if not os.path.exists(args.output_dir):
             os.makedirs(args.output_dir)
 
         logger.info("Saving model checkpoint to %s", args.output_dir)
